@@ -38,7 +38,7 @@ The drone communicates with a Flutter application using socket I/O, enabling rea
 ![Parrot Bebop 2 Drone](https://github.com/yerson001/chakra360/blob/main/images/ros.jpeg)
 
 
-## Instructions to Run the Arduino Code:
+- ## Instructions to Run the Arduino Code:
 1. **Install the Required Libraries:**
    - Install the following libraries in your Arduino IDE:
      - `TinyGPS++`
