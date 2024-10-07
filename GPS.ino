@@ -1,147 +1,138 @@
-#include <SoftwareSerial.h>
+#include <WiFi.h>
+
+#include <HTTPClient.h>
+
+#include <HardwareSerial.h>
 #include <TinyGPS++.h>
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
-#include <ESP8266HTTPClient.h>
 
-// GPS Pins
-#define gpsRxPin 5
-#define gpsTxPin 4
-SoftwareSerial neo6m(gpsTxPin, gpsRxPin);
+#include <Adafruit_BMP085.h>
 
-// Interval for updating the database (20 seconds)
-unsigned long lastUpdateTime = 0;
-const unsigned long updateInterval = 20000; // 20000ms = 20s
+#include "DHT.h"
 
-// Clase para manejar la conexión WiFi
-class WiFiManager {
-  private:
-    const char* ssid;
-    const char* password;
+#include "utils.h"
 
-  public:
-    WiFiManager(const char* ssid, const char* password) {
-      this->ssid = ssid;
-      this->password = password;
-    }
+// Definitions
+#define DHT_PIN 33
+#define DHT_TYPE DHT21
 
-    void connect() {
-      Serial.print("Conectando a ");
-      Serial.println(ssid);
-      WiFi.begin(ssid, password);
+#define GPS_RX_PIN 35
+#define GPS_TX_PIN 34
 
-      while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-      }
+#define MQ7_PIN 32
 
-      Serial.println("\nWiFi conectado.");
-      Serial.println("IP address: ");
-      Serial.println(WiFi.localIP());
-    }
+ 
+// Main Objects
+//// Sensors
+DHT dht(DHT_PIN, DHT_TYPE);
+Adafruit_BMP085 bmp180;
+MQ_7 mq_7(MQ7_PIN);
 
-    bool isConnected() {
-      return (WiFi.status() == WL_CONNECTED);
-    }
-};
-
-// Clase para manejar la actualización de datos en Supabase
-class SupabaseManager {
-  private:
-    String apiUrl;
-    String apiKey;
-    WiFiClientSecure client;
-    HTTPClient https;
-
-  public:
-    SupabaseManager(String apiUrl, String apiKey) {
-      this->apiUrl = apiUrl;
-      this->apiKey = apiKey;
-      client.setInsecure();
-    }
-
-    void updateData(float lat, float lng, String name = "dronepos") {
-      if (WiFi.status() == WL_CONNECTED) {
-        // Crear la conexión HTTPS con la URL de la API y la tabla weatherdata
-        https.begin(client, apiUrl + "?id=eq.1");
-
-        // Añadir los headers necesarios para la solicitud
-        https.addHeader("Content-Type", "application/json");
-        https.addHeader("Prefer", "return=representation");
-        https.addHeader("apikey", apiKey);
-        https.addHeader("Authorization", "Bearer " + apiKey);
-
-        // Crear el cuerpo del mensaje en formato JSON
-        String postData = "{\"name\":\"" + name + "\",\"lat\":" + String(lat, 6) + ",\"log\":" + String(lng, 6) + "}";
-
-        // Enviar la solicitud PATCH para actualizar la fila con id = 1
-        int httpCode = https.PATCH(postData);
-
-        // Imprimir el código de respuesta y el contenido de la respuesta
-        String payload = https.getString();
-        Serial.println("HTTP Code: " + String(httpCode));
-        Serial.println("Response: " + payload);
-
-        // Terminar la conexión HTTPS
-        https.end();
-      } else {
-        Serial.println("Error en la conexión WiFi.");
-      }
-    }
-};
-
-// GPS object
+//// GPS Object
 TinyGPSPlus gps;
+
+float currentLat;
+float currentLng;
+
+//// Connections
+HardwareSerial neo6m(2);
 WiFiManager wifiManager("yerson", "char5524");
 SupabaseManager supabaseManager("https://vhdoekfqjwwvsklzhzca.supabase.co/rest/v1/weatherdata", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZG9la2Zxand3dnNrbHpoemNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc2MzA3MTcsImV4cCI6MjA0MzIwNjcxN30.PKihHezo0djNd1_XNEqeWDwYaxMsESOSN7w4DXGgXhM");
 
-void setup() {
-  // Serial and GPS initialization
-  Serial.begin(115200);
-  neo6m.begin(9600);
-  Serial.println("GPS inicializado");
+// Setups
+unsigned long lastUpdateTime = 0;
+const unsigned long updateInterval = 5000; // 20000ms = 20s
 
-  // Conectar a la red WiFi
-  wifiManager.connect();
-}
+// Local variables 
+//// DHT 21 
+float h; // %
+float t; // °C
 
-void loop() {
-  // Handle GPS data
-  smartdelay_gps(1000);
-  float currentLat = 0.0;
-  float currentLng = 0.0;
+//// BMP180
+float p, a;
+float m_s_n_m = 2335;
 
-  if (gps.location.isValid()) {
-    // Si la ubicación GPS es válida, obtenemos los valores
-    currentLat = gps.location.lat();
-    currentLng = gps.location.lng();
+//// MQ
+float qa;
 
-    // Imprimir latitud y longitud en el monitor serial
-    Serial.print("Latitud: ");
-    Serial.println(currentLat, 6);
-    Serial.print("Longitud: ");
-    Serial.println(currentLng, 6);
-    Serial.println("");  // Nueva línea para separación visual
-  } else {
-    // Si la ubicación no es válida, establecer valores en 0
-    Serial.println("Esperando señal GPS...");
-  }
+void setup()
+{
+    // Serial and GPS initialization
+    Serial.begin(115200);
+    neo6m.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN); // Inicializar HardwareSerial
+    Serial.println("GPS inicializado");
 
-  // Update Supabase data every 20 seconds
-  if (millis() - lastUpdateTime >= updateInterval) {
-    if (currentLat != 0.0 || currentLng != 0.0) {
-      supabaseManager.updateData(currentLat, currentLng);  // Solo actualiza si latitud o longitud no es 0
-    } else {
-      supabaseManager.updateData(0.0, 0.0);  // Actualiza con 0 en ambos campos si no hay señal GPS
+    wifiManager.connect();
+
+    // Sensors initialization
+    dht.begin();
+
+    if (!bmp180.begin()) {
+	    Serial.println("Could not find a valid BMP085 sensor, check wiring!");
     }
-    lastUpdateTime = millis();  // Reinicia el temporizador
-  }
 }
 
-static void smartdelay_gps(unsigned long ms) {
-  unsigned long start = millis();
-  do {
-    while (neo6m.available())
-      gps.encode(neo6m.read());
-  } while (millis() - start < ms);
+void loop()
+{
+    // Handle GPS data
+    smartdelay_gps(1000);
+    currentLat = 0.0;
+    currentLng = 0.0;
+
+    // Handle DHT data
+    h = dht.readHumidity();    // %
+    t = dht.readTemperature(); // °C
+
+    // Handle BMP data
+    p = bmp180.readPressure();
+    a = bmp180.readAltitude(101500);
+
+    qa = mq_7.readQA();
+
+    Serial.print(" H: ");
+    Serial.print(h);
+    Serial.print(" T: ");
+    Serial.print(t);
+    Serial.print(" P: ");
+    Serial.print(p);
+    Serial.print(" A: ");
+    Serial.print(a);
+    Serial.print(" QA: ");
+    Serial.print(qa);
+    Serial.println();
+
+    if (gps.location.isValid())
+    {
+        currentLat = gps.location.lat();
+        currentLng = gps.location.lng();
+
+        Serial.print("Latitud: ");
+        Serial.println(currentLat, 6);
+        Serial.print("Longitud: ");
+        Serial.println(currentLng, 6);
+        Serial.println(); 
+    }
+    else
+    {
+        Serial.println("Esperando señal GPS...");
+    }
+
+    // Update Supabase data every 20 seconds
+    if (millis() - lastUpdateTime >= updateInterval) {
+      if (_currentLat != 0.0 || _currentLng != 0.0) {
+        supabaseManager.updateData(currentLat, currentLng, p, a, t, h, qa);  
+      } else {
+        supabaseManager.updateData(0.0, 0.0, 0.0,0.0,0.0,0.0,0.0);  
+      }
+      lastUpdateTime = millis(); 
+    }
+}
+
+static void smartdelay_gps(unsigned long ms)
+{
+    unsigned long start = millis();
+    do
+    {
+        while (neo6m.available())
+            gps.encode(neo6m.read());
+    } while (millis() - start < ms);
 }
