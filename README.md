@@ -20,6 +20,10 @@ The sensor system is built on an **ESP32** and collects real-time data from vari
 
 The weather station is housed in a 3D printed case that protects the sensors from weather conditions and allows efficient use on the **Bebop 2** drone.
 
+## Diagram of the System
+
+![Diagram](https://github.com/yerson001/chakra360/blob/main/images/diagram.PNG)
+
 ## 2. Parrot Bebop 2 Drone
 
 Development drone
