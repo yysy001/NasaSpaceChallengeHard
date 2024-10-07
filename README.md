@@ -26,9 +26,14 @@ The weather station is housed in a 3D printed case that protects the sensors fro
 
 ## 2. Parrot Bebop 2 Drone
 
-Development drone
+The Parrot Bebop 2 is a versatile development drone equipped for advanced agricultural applications. It operates seamlessly with the Robot Operating System (ROS), allowing for robust control and data management.
 
-![Alternative Text](https://github.com/yerson001/chakra360/blob/main/images/drone.PNG)
+The drone communicates with a Flutter application using socket I/O, enabling real-time telemetry and data visualization. This integration facilitates efficient monitoring and control of drone operations, enhancing decision-making for agricultural tasks.
+
+- **Repository for Drone Control**: [Link to Drone Control Repository](https://github.com/yourusername/drone-control-repo)
+
+![Parrot Bebop 2 Drone](https://github.com/yerson001/chakra360/blob/main/images/drone.PNG)
+
 
 ## Instructions to Run the Arduino Code:
 1. **Install the Required Libraries:**
