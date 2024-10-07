@@ -30,7 +30,7 @@ The Parrot Bebop 2 is a versatile development drone equipped for advanced agricu
 
 The drone communicates with a Flutter application using socket I/O, enabling real-time telemetry and data visualization. This integration facilitates efficient monitoring and control of drone operations, enhancing decision-making for agricultural tasks.
 
-- **Repository for Drone Control**: [Link to Drone Control Repository](https://github.com/yourusername/drone-control-repo)
+- **Repository for Drone Control**: [Link to Drone Control Repository](https://github.com/yerson001/drone_controller.git)
 
 ![Parrot Bebop 2 Drone](https://github.com/yerson001/chakra360/blob/main/images/drone.PNG)
 
